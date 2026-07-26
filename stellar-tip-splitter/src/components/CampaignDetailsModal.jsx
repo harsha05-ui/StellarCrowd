@@ -76,10 +76,12 @@ export default function CampaignDetailsModal({
       onRefresh(updatedCampaign)
     } catch (err) {
       console.error(err)
+      const errMsg = err.message || 'Transaction rejected or failed.'
       setTxResult({
         status: 'error',
-        message: err.message || 'Transaction rejected or failed.',
+        message: errMsg,
       })
+      if (addToast) addToast(`Investment failed: ${errMsg}`, 'error')
     } finally {
       setLoading(false)
     }
@@ -98,10 +100,12 @@ export default function CampaignDetailsModal({
       onRefresh(updatedCampaign)
     } catch (err) {
       console.error(err)
+      const errMsg = err.message || 'Withdrawal transaction failed.'
       setTxResult({
         status: 'error',
-        message: err.message || 'Withdrawal transaction failed.',
+        message: errMsg,
       })
+      if (addToast) addToast(`Withdrawal failed: ${errMsg}`, 'error')
     } finally {
       setLoading(false)
     }
@@ -120,10 +124,12 @@ export default function CampaignDetailsModal({
       onRefresh(updatedCampaign)
     } catch (err) {
       console.error(err)
+      const errMsg = err.message || 'Refund transaction failed.'
       setTxResult({
         status: 'error',
-        message: err.message || 'Refund transaction failed.',
+        message: errMsg,
       })
+      if (addToast) addToast(`Refund failed: ${errMsg}`, 'error')
     } finally {
       setLoading(false)
     }
