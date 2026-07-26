@@ -5,18 +5,18 @@ const CATEGORIES = ['Technology', 'Environment', 'Art', 'Community']
 
 export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
   const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
+  const [shortDescription, setShortDescription] = useState('')
+  const [fullDescription, setFullDescription] = useState('')
   const [targetAmount, setTargetAmount] = useState('')
   const [deadline, setDeadline] = useState('')
   const [category, setCategory] = useState(CATEGORIES[0])
   const [coverImage, setCoverImage] = useState('')
+  const [creatorName, setCreatorName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Set default deadline date (e.g., 7 days from now)
   useEffect(() => {
     const defaultDate = new Date()
     defaultDate.setDate(defaultDate.getDate() + 7)
-    // Format to yyyy-MM-dd
     const year = defaultDate.getFullYear()
     const month = String(defaultDate.getMonth() + 1).padStart(2, '0')
     const day = String(defaultDate.getDate()).padStart(2, '0')
@@ -32,8 +32,8 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
       return
     }
 
-    if (!title.trim() || !description.trim()) {
-      setErrorMsg('Title and description are required.')
+    if (!title.trim() || !shortDescription.trim() || !fullDescription.trim() || !creatorName.trim()) {
+      setErrorMsg('All description and creator fields are required.')
       return
     }
 
@@ -50,15 +50,16 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
     }
 
     try {
-      // Create campaign in local state DB
       onCreate({
         title: title.trim(),
-        description: description.trim(),
+        description: fullDescription.trim(),
+        shortDescription: shortDescription.trim(),
         targetAmount: target,
         deadline: deadlineDate.toISOString(),
         category,
-        coverImage: coverImage.trim() || undefined, // undefined will fallback to default in crowdfunding.js
+        coverImage: coverImage.trim() || undefined,
         creator: publicKey,
+        creatorName: creatorName.trim(),
       })
     } catch (err) {
       setErrorMsg(err.message || 'Failed to create campaign.')
@@ -82,16 +83,29 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          {/* Creator Display */}
-          <div>
-            <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Creator Address</label>
-            <input
-              type="text"
-              readOnly
-              value={publicKey || 'Wallet not connected'}
-              className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 font-mono text-[10px] text-mist focus:outline-none cursor-not-allowed"
-            />
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          {/* Creator Details */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Creator Name</label>
+              <input
+                type="text"
+                required
+                value={creatorName}
+                onChange={(e) => setCreatorName(e.target.value)}
+                placeholder="e.g. Acme Tech Labs"
+                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Stellar Address</label>
+              <input
+                type="text"
+                readOnly
+                value={publicKey || 'Wallet not connected'}
+                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 font-mono text-[10px] text-mist focus:outline-none cursor-not-allowed"
+              />
+            </div>
           </div>
 
           {/* Title */}
@@ -102,21 +116,35 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Solar Energy Water Filter"
+              placeholder="e.g. Ocean Cleanup Solar Bot"
               maxLength={60}
               className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50"
             />
           </div>
 
-          {/* Description */}
+          {/* Short Description */}
           <div>
-            <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Description</label>
+            <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Short Description</label>
+            <input
+              type="text"
+              required
+              value={shortDescription}
+              onChange={(e) => setShortDescription(e.target.value)}
+              placeholder="A brief 1-sentence hook summarizing your project goals..."
+              maxLength={120}
+              className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50"
+            />
+          </div>
+
+          {/* Full Description */}
+          <div>
+            <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Full Campaign Description</label>
             <textarea
               required
               rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Provide a detailed explanation of your fundraising campaign goals and execution plans..."
+              value={fullDescription}
+              onChange={(e) => setFullDescription(e.target.value)}
+              placeholder="Provide a detailed roadmap, resource allocations, and technical details of your project..."
               className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50"
             />
           </div>
@@ -133,7 +161,7 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
                   step="any"
                   value={targetAmount}
                   onChange={(e) => setTargetAmount(e.target.value)}
-                  placeholder="500"
+                  placeholder="300"
                   className="w-full rounded-lg border border-space-600 bg-space-900 pl-3 pr-12 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50 font-mono"
                 />
                 <span className="absolute right-3 top-2.5 text-xs font-mono font-bold text-mist">XLM</span>
@@ -172,7 +200,7 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
 
             {/* Cover Image URL */}
             <div>
-              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Cover Image URL (Optional)</label>
+              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Cover Image URL</label>
               <input
                 type="url"
                 value={coverImage}

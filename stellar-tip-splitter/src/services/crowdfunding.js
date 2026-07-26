@@ -1,11 +1,9 @@
-// src/lib/crowdfunding.js
+// src/services/crowdfunding.js
 //
-// Crowdfunding state management engine.
-// Simulated smart contract state using localStorage with pre-seeded data.
+// Crowdfunding state management engine (Simulated smart contract state).
 
-const CAMPAIGNS_KEY = 'stellar_crowdfund_campaigns_v1';
+const CAMPAIGNS_KEY = 'stellar_crowdfund_campaigns_v2';
 
-// Seed initial campaigns if none exist.
 const getInitialSeed = () => {
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
@@ -14,34 +12,44 @@ const getInitialSeed = () => {
     {
       id: '1',
       title: 'Orion-1 Space Probe',
-      description: 'Sending a low-cost, open-source atmospheric probe to map outer orbit radiation levels and stream telemetry in real-time.',
+      description: 'Sending a low-cost, open-source atmospheric probe to map outer orbit radiation levels and stream telemetry in real-time. This mission aims to gather crucial weather and radiation data for open science.',
       targetAmount: 500,
       raisedAmount: 420,
-      deadline: new Date(now + 5 * dayMs).toISOString(), // 5 days from now
+      deadline: new Date(now + 5 * dayMs).toISOString(),
       category: 'Technology',
       coverImage: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80',
-      creator: 'GB7T77777777777777777777777777777777777777777777777777777777', // Sample creator address
+      creator: 'GB7T77777777777777777777777777777777777777777777777777777777',
+      creatorName: 'Orion Aerospace Group',
       withdrawn: false,
       investors: [
         { address: 'GD4K12345678901234567890123456789012345678901234567890123456', amount: 150, refunded: false, txHash: '5c28...1234', timestamp: new Date(now - 1.5 * dayMs).toISOString() },
         { address: 'GC3A99999999999999999999999999999999999999999999999999999999', amount: 270, refunded: false, txHash: '8b91...5678', timestamp: new Date(now - 8 * 3600 * 1000).toISOString() },
       ],
+      comments: [
+        { author: 'GD4K12345678901234567890123456789012345678901234567890123456', text: 'Stellar space tech! Stoked to see this telemetry feed live on testnet.', timestamp: new Date(now - 1.2 * dayMs).toISOString() }
+      ],
+      favorites: []
     },
     {
       id: '2',
       title: 'Ocean Plastic Cleanup Bot',
-      description: 'An autonomous solar-powered micro-boat designed to patrol harbors, collect microplastics, and monitor water quality parameters.',
+      description: 'An autonomous solar-powered micro-boat designed to patrol harbors, collect microplastics, and monitor water quality parameters. Capable of mapping plastic density logs in real time.',
       targetAmount: 300,
       raisedAmount: 350,
-      deadline: new Date(now - 2 * dayMs).toISOString(), // Ended 2 days ago
+      deadline: new Date(now - 2 * dayMs).toISOString(), // Ended (success)
       category: 'Environment',
       coverImage: 'https://images.unsplash.com/photo-1618477388954-7852f32655ec?w=600&auto=format&fit=crop&q=80',
-      creator: 'GB7T77777777777777777777777777777777777777777777777777777777', // Match user to allow creator test actions
+      creator: 'GB7T77777777777777777777777777777777777777777777777777777777', // User matches creator
+      creatorName: 'Blue Horizon Tech',
       withdrawn: false,
       investors: [
         { address: 'GD4K12345678901234567890123456789012345678901234567890123456', amount: 200, refunded: false, txHash: '21ab...a1b2', timestamp: new Date(now - 6 * dayMs).toISOString() },
         { address: 'GC3A99999999999999999999999999999999999999999999999999999999', amount: 150, refunded: false, txHash: 'f4d9...3cd4', timestamp: new Date(now - 4 * dayMs).toISOString() },
       ],
+      comments: [
+        { author: 'GC3A99999999999999999999999999999999999999999999999999999999', text: 'This will clean up our local marina! Funding target achieved!', timestamp: new Date(now - 3.8 * dayMs).toISOString() }
+      ],
+      favorites: []
     },
     {
       id: '3',
@@ -49,14 +57,17 @@ const getInitialSeed = () => {
       description: 'A modular, Raspberry Pi-powered mini arcade console featuring a hand-finished walnut chassis and high-fidelity mechanical controls.',
       targetAmount: 400,
       raisedAmount: 120,
-      deadline: new Date(now - 1 * dayMs).toISOString(), // Ended 1 day ago (failed)
+      deadline: new Date(now - 1 * dayMs).toISOString(), // Ended (failed)
       category: 'Art',
       coverImage: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80',
       creator: 'GA9T99999999999999999999999999999999999999999999999999999999',
+      creatorName: 'Classic Mechanics Ltd',
       withdrawn: false,
       investors: [
         { address: 'GD4K12345678901234567890123456789012345678901234567890123456', amount: 120, refunded: false, txHash: 'e71c...8e90', timestamp: new Date(now - 3 * dayMs).toISOString() },
       ],
+      comments: [],
+      favorites: []
     },
     {
       id: '4',
@@ -64,22 +75,24 @@ const getInitialSeed = () => {
       description: 'Installing solar-powered park benches in public greenspaces equipped with Qi wireless chargers, environmental sensors, and localized community info hubs.',
       targetAmount: 600,
       raisedAmount: 620,
-      deadline: new Date(now + 12 * dayMs).toISOString(), // 12 days from now
+      deadline: new Date(now + 12 * dayMs).toISOString(),
       category: 'Community',
       coverImage: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600&auto=format&fit=crop&q=80',
       creator: 'GB8X88888888888888888888888888888888888888888888888888888888',
+      creatorName: 'Smart Park Initiative',
       withdrawn: false,
       investors: [
         { address: 'GD4K12345678901234567890123456789012345678901234567890123456', amount: 320, refunded: false, txHash: 'd3f2...a7b8', timestamp: new Date(now - 2 * dayMs).toISOString() },
         { address: 'GC3A99999999999999999999999999999999999999999999999999999999', amount: 300, refunded: false, txHash: '9a9f...c2d4', timestamp: new Date(now - 4 * 3600 * 1000).toISOString() },
       ],
+      comments: [
+        { author: 'GD4K12345678901234567890123456789012345678901234567890123456', text: 'Backed this. Perfect initiative for public spaces.', timestamp: new Date(now - 1.8 * dayMs).toISOString() }
+      ],
+      favorites: []
     },
   ];
 };
 
-/**
- * Gets all campaigns from localStorage, dynamically calculating the status.
- */
 export function getCampaigns() {
   let list = localStorage.getItem(CAMPAIGNS_KEY);
   if (!list) {
@@ -98,9 +111,6 @@ export function getCampaigns() {
   }
 }
 
-/**
- * Helper to compute status dynamically based on current time.
- */
 function appendStatus(campaign) {
   const now = new Date();
   const deadlineDate = new Date(campaign.deadline);
@@ -115,20 +125,20 @@ function appendStatus(campaign) {
     }
   }
 
-  return { ...campaign, status };
+  // Ensure arrays are initialized
+  return {
+    ...campaign,
+    status,
+    comments: campaign.comments || [],
+    favorites: campaign.favorites || [],
+  };
 }
 
-/**
- * Saves campaigns back to localStorage.
- */
 function saveCampaigns(campaigns) {
   localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(campaigns));
 }
 
-/**
- * Creates a new fundraising campaign.
- */
-export function createCampaign({ title, description, targetAmount, deadline, category, coverImage, creator }) {
+export function createCampaign({ title, description, targetAmount, deadline, category, coverImage, creator, creatorName }) {
   if (!title || !description || !targetAmount || !deadline || !category || !creator) {
     throw new Error('All fields are required.');
   }
@@ -154,8 +164,11 @@ export function createCampaign({ title, description, targetAmount, deadline, cat
     category,
     coverImage: coverImage || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=80',
     creator,
+    creatorName: creatorName || 'Anonymous Creator',
     withdrawn: false,
     investors: [],
+    comments: [],
+    favorites: [],
   };
 
   campaigns.push(newCampaign);
@@ -163,9 +176,6 @@ export function createCampaign({ title, description, targetAmount, deadline, cat
   return appendStatus(newCampaign);
 }
 
-/**
- * Invests in an active campaign.
- */
 export function investInCampaign(campaignId, investorAddress, amount, txHash) {
   const campaigns = getCampaigns();
   const index = campaigns.findIndex(c => c.id === campaignId);
@@ -181,8 +191,8 @@ export function investInCampaign(campaignId, investorAddress, amount, txHash) {
     throw new Error('Investment amount must be greater than zero.');
   }
 
-  // Update raised amount and add investor details
   campaigns[index].raisedAmount = Number((campaigns[index].raisedAmount + investAmount).toFixed(7));
+  campaigns[index].investors = campaigns[index].investors || [];
   campaigns[index].investors.push({
     address: investorAddress,
     amount: investAmount,
@@ -195,9 +205,6 @@ export function investInCampaign(campaignId, investorAddress, amount, txHash) {
   return appendStatus(campaigns[index]);
 }
 
-/**
- * Withdraws funds as campaign creator.
- */
 export function withdrawCampaignFunds(campaignId, creatorAddress) {
   const campaigns = getCampaigns();
   const index = campaigns.findIndex(c => c.id === campaignId);
@@ -209,7 +216,7 @@ export function withdrawCampaignFunds(campaignId, creatorAddress) {
   }
 
   if (campaign.status !== 'successful') {
-    throw new Error('Funds can only be withdrawn from successful, completed campaigns.');
+    throw new Error('Funds can only be withdrawn from successful campaigns.');
   }
 
   if (campaigns[index].withdrawn) {
@@ -221,9 +228,6 @@ export function withdrawCampaignFunds(campaignId, creatorAddress) {
   return appendStatus(campaigns[index]);
 }
 
-/**
- * Claims a refund as an investor of a failed campaign.
- */
 export function claimInvestorRefund(campaignId, investorAddress) {
   const campaigns = getCampaigns();
   const index = campaigns.findIndex(c => c.id === campaignId);
@@ -234,7 +238,6 @@ export function claimInvestorRefund(campaignId, investorAddress) {
     throw new Error('Refunds are only available for failed campaigns.');
   }
 
-  // Check if this user is an investor who has not been refunded yet
   let updated = false;
   let hasInvested = false;
   let alreadyRefunded = true;
@@ -257,6 +260,51 @@ export function claimInvestorRefund(campaignId, investorAddress) {
 
   if (alreadyRefunded && !updated) {
     throw new Error('You have already claimed your refund.');
+  }
+
+  saveCampaigns(campaigns);
+  return appendStatus(campaigns[index]);
+}
+
+/**
+ * Adds a comment to a campaign.
+ */
+export function addCampaignComment(campaignId, authorName, text) {
+  if (!text || !text.trim()) {
+    throw new Error('Comment text cannot be empty.');
+  }
+
+  const campaigns = getCampaigns();
+  const index = campaigns.findIndex(c => c.id === campaignId);
+  if (index === -1) throw new Error('Campaign not found.');
+
+  campaigns[index].comments = campaigns[index].comments || [];
+  campaigns[index].comments.push({
+    author: authorName,
+    text: text.trim(),
+    timestamp: new Date().toISOString(),
+  });
+
+  saveCampaigns(campaigns);
+  return appendStatus(campaigns[index]);
+}
+
+/**
+ * Toggles a campaign's favorite status for a given user.
+ */
+export function toggleFavoriteCampaign(campaignId, userAddress) {
+  if (!userAddress) throw new Error('User address is required to favorite.');
+
+  const campaigns = getCampaigns();
+  const index = campaigns.findIndex(c => c.id === campaignId);
+  if (index === -1) throw new Error('Campaign not found.');
+
+  campaigns[index].favorites = campaigns[index].favorites || [];
+  const favIndex = campaigns[index].favorites.indexOf(userAddress);
+  if (favIndex === -1) {
+    campaigns[index].favorites.push(userAddress);
+  } else {
+    campaigns[index].favorites.splice(favIndex, 1);
   }
 
   saveCampaigns(campaigns);

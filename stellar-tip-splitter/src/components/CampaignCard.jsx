@@ -1,26 +1,6 @@
 // src/components/CampaignCard.jsx
 import React from 'react'
-
-export function getDaysRemaining(deadlineStr) {
-  const diffTime = new Date(deadlineStr) - new Date()
-  if (diffTime <= 0) return 0
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-}
-
-export function getCategoryStyles(category) {
-  switch (category?.toLowerCase()) {
-    case 'technology':
-      return 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-    case 'environment':
-      return 'bg-green-500/10 text-green-400 border-green-500/20'
-    case 'art':
-      return 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-    case 'community':
-      return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-    default:
-      return 'bg-slate-500/10 text-slate-400 border-slate-500/20'
-  }
-}
+import { getDaysRemaining, getCategoryStyles } from '../utils/helpers'
 
 export default function CampaignCard({ campaign, onClick }) {
   const daysLeft = getDaysRemaining(campaign.deadline)
@@ -28,7 +8,6 @@ export default function CampaignCard({ campaign, onClick }) {
   const categoryClass = getCategoryStyles(campaign.category)
   const hasEnded = new Date(campaign.deadline) <= new Date()
 
-  // Capitalize status
   const statusLabels = {
     active: 'Active',
     successful: 'Success',
@@ -56,7 +35,6 @@ export default function CampaignCard({ campaign, onClick }) {
             e.target.src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=80'
           }}
         />
-        {/* Category & Status badges */}
         <div className="absolute left-3 top-3 flex gap-2">
           <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${categoryClass}`}>
             {campaign.category}
@@ -73,6 +51,9 @@ export default function CampaignCard({ campaign, onClick }) {
           <h3 className="text-base font-bold text-white line-clamp-1 hover:text-stellarblue-400">
             {campaign.title}
           </h3>
+          <p className="mt-1 text-[10px] text-stellarblue-400 font-semibold font-mono uppercase">
+            By {campaign.creatorName || 'Anonymous'}
+          </p>
           <p className="mt-2 text-xs text-mist line-clamp-2 leading-relaxed">
             {campaign.description}
           </p>
@@ -84,7 +65,6 @@ export default function CampaignCard({ campaign, onClick }) {
             <span className="text-white font-mono">{campaign.raisedAmount.toLocaleString()} XLM</span>
             <span className="text-mist font-mono">{percent}% raised</span>
           </div>
-          {/* Progress bar */}
           <div className="mt-2 h-1.5 w-full rounded-full bg-space-700 overflow-hidden">
             <div 
               className={`h-full rounded-full transition-all duration-500 ${

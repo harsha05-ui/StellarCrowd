@@ -1,25 +1,32 @@
 // src/components/CampaignDetailsModal.jsx
 import React, { useState } from 'react'
 import TxResult from './TxResult'
-import { getDaysRemaining, getCategoryStyles } from './CampaignCard'
+import { getDaysRemaining, getCategoryStyles, truncateAddress } from '../utils/helpers'
 import {
   sendCrowdfundInvestment,
   sendCrowdfundWithdraw,
   sendCrowdfundRefund,
-} from '../lib/stellar'
+} from '../services/stellar'
 import {
   investInCampaign,
   withdrawCampaignFunds,
   claimInvestorRefund,
-} from '../lib/crowdfunding'
+} from '../services/crowdfunding'
 
-function truncateAddress(address) {
-  if (!address) return ''
-  return `${address.slice(0, 8)}…${address.slice(-8)}`
-}
-
-export default function CampaignDetailsModal({ campaign, onClose, onRefresh, publicKey, balance, onConnect }) {
+export default function CampaignDetailsModal({
+  campaign,
+  onClose,
+  onRefresh,
+  publicKey,
+  balance,
+  onConnect,
+  onAddComment,
+  onToggleFavorite,
+  addToast
+}) {
   const [investAmount, setInvestAmount] = useState('')
+  const [commentText, setCommentText] = useState('')
+  const [commenterName, setCommenterName] = useState('')
   const [loading, setLoading] = useState(false)
   const [txResult, setTxResult] = useState(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -29,13 +36,15 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
   const isCreator = publicKey && campaign.creator === publicKey
   const hasEnded = new Date(campaign.deadline) <= new Date()
 
-  // Find if user is an investor
+  // Find if user backed
   const userInvestments = publicKey
     ? campaign.investors.filter(inv => inv.address === publicKey)
     : []
   const hasInvested = userInvestments.length > 0
   const isRefunded = hasInvested && userInvestments.every(inv => inv.refunded)
   const canRefund = hasEnded && campaign.status === 'failed' && hasInvested && !isRefunded
+
+  const isFavorited = publicKey && campaign.favorites && campaign.favorites.includes(publicKey)
 
   const handleInvest = async (e) => {
     e.preventDefault()
@@ -60,16 +69,10 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
     }
 
     try {
-      // 1. Submit real transaction to Stellar Testnet
       const { hash } = await sendCrowdfundInvestment(publicKey, amount, campaign.id)
-      
-      // 2. Update local state database
       const updatedCampaign = investInCampaign(campaign.id, publicKey, amount, hash)
-      
       setTxResult({ status: 'success', hash })
       setInvestAmount('')
-      
-      // Trigger update in parent App
       onRefresh(updatedCampaign)
     } catch (err) {
       console.error(err)
@@ -89,12 +92,8 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
     setLoading(true)
 
     try {
-      // 1. Sign & Submit withdraw transaction on Testnet
       const { hash } = await sendCrowdfundWithdraw(publicKey, campaign.id)
-      
-      // 2. Update local state
       const updatedCampaign = withdrawCampaignFunds(campaign.id, publicKey)
-      
       setTxResult({ status: 'success', hash })
       onRefresh(updatedCampaign)
     } catch (err) {
@@ -115,12 +114,8 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
     setLoading(true)
 
     try {
-      // 1. Sign & Submit refund transaction on Testnet
       const { hash } = await sendCrowdfundRefund(publicKey, campaign.id)
-      
-      // 2. Update local state
       const updatedCampaign = claimInvestorRefund(campaign.id, publicKey)
-      
       setTxResult({ status: 'success', hash })
       onRefresh(updatedCampaign)
     } catch (err) {
@@ -132,6 +127,32 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleShare = () => {
+    const mockUrl = `${window.location.origin}/?campaign=${campaign.id}`
+    navigator.clipboard.writeText(mockUrl)
+    if (addToast) {
+      addToast('Campaign link copied to clipboard!', 'success')
+    }
+  }
+
+  const handleFavoriteToggle = () => {
+    if (!publicKey) {
+      if (addToast) addToast('Connect wallet to favorite campaigns.', 'info')
+      return
+    }
+    const updated = onToggleFavorite(campaign.id, publicKey)
+    onRefresh(updated)
+  }
+
+  const handlePostComment = (e) => {
+    e.preventDefault()
+    if (!commentText.trim()) return
+    const author = commenterName.trim() || truncateAddress(publicKey)
+    const updated = onAddComment(campaign.id, author, commentText)
+    setCommentText('')
+    onRefresh(updated)
   }
 
   const categoryStyles = getCategoryStyles(campaign.category)
@@ -151,13 +172,38 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-space-800 to-transparent" />
-          <button
-            onClick={onClose}
-            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-space-950/60 text-white hover:bg-space-950 hover:text-flare-400 focus:outline-none"
-            aria-label="Close details"
-          >
-            ✕
-          </button>
+          
+          {/* Top right buttons */}
+          <div className="absolute right-4 top-4 flex items-center gap-2">
+            {/* Share */}
+            <button
+              onClick={handleShare}
+              title="Copy share link"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-space-950/60 text-white hover:bg-space-950 hover:text-stellarblue-400"
+            >
+              🔗
+            </button>
+            {/* Favorite */}
+            <button
+              onClick={handleFavoriteToggle}
+              title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-space-950/60 text-white hover:bg-space-950"
+            >
+              {isFavorited ? (
+                <span className="text-red-500 text-sm">❤️</span>
+              ) : (
+                <span className="text-mist text-sm">🤍</span>
+              )}
+            </button>
+            {/* Close */}
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-space-950/60 text-white hover:bg-space-950 hover:text-flare-400"
+              aria-label="Close details"
+            >
+              ✕
+            </button>
+          </div>
           
           <div className="absolute bottom-4 left-5 right-5">
             <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${categoryStyles}`}>
@@ -166,6 +212,9 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
             <h2 className="mt-2 text-xl font-bold text-white sm:text-2xl line-clamp-2">
               {campaign.title}
             </h2>
+            <p className="mt-1 text-xs text-stellarblue-400 font-mono">
+              Launched by {campaign.creatorName || 'Anonymous'}
+            </p>
           </div>
         </div>
 
@@ -182,21 +231,19 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
             </div>
 
             <div className="border-t border-space-600/50 pt-4">
-              <h3 className="text-xs uppercase tracking-wider text-mist font-semibold">Creator Address</h3>
+              <h3 className="text-xs uppercase tracking-wider text-mist font-semibold">Creator Wallet Address</h3>
               <p className="mt-1 font-mono text-xs text-white break-all">{campaign.creator}</p>
             </div>
 
-            {/* Funding History / Investors list */}
+            {/* Backers / Investment History */}
             <div className="border-t border-space-600/50 pt-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs uppercase tracking-wider text-mist font-semibold">
-                  Investor History ({campaign.investors.length})
-                </h3>
-              </div>
+              <h3 className="text-xs uppercase tracking-wider text-mist font-semibold">
+                Platform Backers ({campaign.investors.length})
+              </h3>
               
-              <div className="mt-3 space-y-2 max-h-40 overflow-y-auto pr-1">
+              <div className="mt-3 space-y-2 max-h-36 overflow-y-auto pr-1">
                 {campaign.investors.length === 0 ? (
-                  <p className="text-xs text-mist/60 italic">No investors yet. Be the first!</p>
+                  <p className="text-xs text-mist/60 italic">No investments yet.</p>
                 ) : (
                   campaign.investors.map((inv, idx) => (
                     <div key={idx} className="flex flex-col justify-between gap-1 rounded-lg bg-space-900/60 p-2 text-xs border border-space-700/30 sm:flex-row sm:items-center">
@@ -205,13 +252,13 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
                           {truncateAddress(inv.address)} {inv.address === publicKey && <span className="text-stellarblue-400 font-sans font-semibold">(You)</span>}
                         </span>
                         <span className="text-[10px] text-mist/70">
-                          {new Date(inv.timestamp).toLocaleDateString()} at {new Date(inv.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(inv.timestamp).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 sm:text-right">
+                      <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-flare-400">{inv.amount} XLM</span>
                         {inv.refunded ? (
-                          <span className="rounded bg-red-500/10 px-1 py-0.5 text-[9px] border border-red-500/20 text-red-400 font-semibold uppercase">Refunded</span>
+                          <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[9px] border border-red-500/20 text-red-400 font-semibold uppercase">Refunded</span>
                         ) : (
                           <a
                             href={`https://stellar.expert/explorer/testnet/tx/${inv.txHash}`}
@@ -223,6 +270,61 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
                           </a>
                         )}
                       </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Comments Section */}
+            <div className="border-t border-space-600/50 pt-4 space-y-4">
+              <h3 className="text-xs uppercase tracking-wider text-mist font-semibold">Comments ({campaign.comments?.length || 0})</h3>
+              
+              {/* Add Comment form */}
+              {publicKey ? (
+                <form onSubmit={handlePostComment} className="space-y-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <input
+                      type="text"
+                      placeholder="Your Name (Optional)"
+                      value={commenterName}
+                      onChange={(e) => setCommenterName(e.target.value)}
+                      className="rounded-lg border border-space-600 bg-space-900 px-3 py-1.5 text-xs text-white focus:outline-none"
+                    />
+                    <div className="sm:col-span-2 flex gap-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Write a public comment..."
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        className="flex-1 rounded-lg border border-space-600 bg-space-900 px-3 py-1.5 text-xs text-white focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-lg bg-stellarblue-500 px-3 py-1 text-xs font-bold text-space-950 hover:bg-stellarblue-400 transition"
+                      >
+                        Post
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                <p className="text-xs text-mist/60">Connect wallet to write comments.</p>
+              )}
+
+              {/* Comments list */}
+              <div className="space-y-3 max-h-40 overflow-y-auto pr-1">
+                {!campaign.comments || campaign.comments.length === 0 ? (
+                  <p className="text-xs text-mist/60 italic">No comments yet. Write the first one!</p>
+                ) : (
+                  campaign.comments.map((comm, idx) => (
+                    <div key={idx} className="rounded-lg bg-space-900/40 border border-space-700/20 p-2 text-xs">
+                      <div className="flex items-center justify-between text-mist text-[10px] font-semibold">
+                        <span className="text-stellarblue-400">{comm.author}</span>
+                        <span>{new Date(comm.timestamp).toLocaleDateString()}</span>
+                      </div>
+                      <p className="mt-1 text-white text-xs leading-normal">{comm.text}</p>
                     </div>
                   ))
                 )}
@@ -255,7 +357,7 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
 
               <div className="mt-4 border-t border-space-600/50 pt-3 flex justify-between text-xs">
                 <div>
-                  <span className="text-mist">Campaign Status:</span>
+                  <span className="text-mist">Status:</span>
                   <span className={`ml-1.5 font-bold uppercase tracking-wider ${
                     campaign.status === 'successful' ? 'text-green-400' : campaign.status === 'failed' ? 'text-red-400' : 'text-stellarblue-400'
                   }`}>{campaign.status}</span>
@@ -270,14 +372,14 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
               </div>
             </div>
 
-            {/* Transaction feedback within modal */}
+            {/* Transaction Feedback */}
             {txResult && (
               <div className="w-full">
                 <TxResult result={txResult} />
               </div>
             )}
 
-            {/* Interaction Panel */}
+            {/* Actions Panel */}
             <div className="rounded-xl border border-space-600 bg-space-900 p-4">
               {campaign.status === 'active' ? (
                 publicKey ? (
@@ -303,9 +405,6 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
                     >
                       {loading ? 'Processing…' : 'Invest via Freighter'}
                     </button>
-                    <p className="text-[9px] text-center text-mist/60 leading-normal">
-                      This will prompt your Freighter extension to sign a payment transaction for {investAmount || '0'} XLM.
-                    </p>
                   </form>
                 ) : (
                   <div className="text-center py-2">
@@ -323,42 +422,36 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
                   campaign.withdrawn ? (
                     <div className="text-center py-2">
                       <span className="inline-block rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2 text-xs text-green-400 font-semibold">
-                        ✓ Campaign Funds Withdrawn
+                        ✓ Funds Claimed
                       </span>
-                      <p className="mt-2 text-[10px] text-mist/60 leading-normal">
-                        Funds from this successful campaign have been successfully claimed.
-                      </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <p className="text-xs text-mist">
-                        Congratulations! Your funding goal was met. Click below to withdraw your collected funds.
+                        Your campaign was successful! Withdraw the collected XLM now.
                       </p>
                       <button
                         onClick={handleWithdraw}
                         disabled={loading}
                         className="w-full rounded-lg bg-green-500 py-2.5 text-xs font-bold text-space-950 hover:bg-green-400 transition disabled:opacity-50"
                       >
-                        {loading ? 'Processing…' : 'Withdraw Campaign Funds'}
+                        {loading ? 'Processing…' : 'Withdraw Funds'}
                       </button>
                     </div>
                   )
                 ) : (
                   <div className="text-center py-2">
                     <span className="inline-block rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2 text-xs text-green-400 font-semibold">
-                      ✓ Campaign Fully Funded!
+                      ✓ Fully Funded!
                     </span>
-                    <p className="mt-2 text-[10px] text-mist/60">
-                      Funding ended successfully. The creator can now withdraw the collected XLM.
-                    </p>
                   </div>
                 )
               ) : (
-                /* FAILED campaign */
+                /* FAILED */
                 canRefund ? (
                   <div className="space-y-3">
                     <p className="text-xs text-mist">
-                      This campaign did not reach its goal before the deadline. Since you invested, you are eligible for a full refund of your contribution.
+                      Goal was not met. Claim a full refund of your backed contribution.
                     </p>
                     <button
                       onClick={handleRefund}
@@ -373,18 +466,12 @@ export default function CampaignDetailsModal({ campaign, onClose, onRefresh, pub
                     <span className="inline-block rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400 font-semibold">
                       ✓ Refund Claimed
                     </span>
-                    <p className="mt-2 text-[10px] text-mist/60">
-                      Your contribution has been refunded back to your account.
-                    </p>
                   </div>
                 ) : (
                   <div className="text-center py-2">
                     <span className="inline-block rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400 font-semibold">
-                      ✕ Campaign Failed
+                      ✕ Campaign Ended
                     </span>
-                    <p className="mt-2 text-[10px] text-mist/60">
-                      This campaign ended without meeting its funding goal.
-                    </p>
                   </div>
                 )
               )}
