@@ -99,6 +99,15 @@ export async function fundWithFriendbot(publicKey) {
  * Performs a self-payment with custom memo text indicating investment details.
  */
 export async function sendCrowdfundInvestment(senderPublicKey, amount, campaignId) {
+  if (senderPublicKey.startsWith('GBSANDBOX')) {
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    const current = parseFloat(localStorage.getItem('sandbox_xlm_balance') || '10000')
+    const updated = Math.max(0, current - amount).toString()
+    localStorage.setItem('sandbox_xlm_balance', updated)
+    const mockHash = 'simulated_' + Math.random().toString(36).substring(2, 15)
+    return { hash: mockHash, ledger: 123456 }
+  }
+
   const sourceAccount = await server.loadAccount(senderPublicKey)
 
   const txBuilder = new TransactionBuilder(sourceAccount, {
@@ -134,6 +143,28 @@ export async function sendCrowdfundInvestment(senderPublicKey, amount, campaignI
  * Builds, signs (via Freighter), and submits a transaction that simulates a creator withdrawal.
  */
 export async function sendCrowdfundWithdraw(creatorPublicKey, campaignId) {
+  if (creatorPublicKey.startsWith('GBSANDBOX')) {
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    let raisedAmount = 0
+    try {
+      const stored = localStorage.getItem('stellar_crowdfund_campaigns_v2')
+      if (stored) {
+        const campaigns = JSON.parse(stored)
+        const campaign = campaigns.find(c => c.id === campaignId)
+        if (campaign) {
+          raisedAmount = campaign.raisedAmount
+        }
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    const current = parseFloat(localStorage.getItem('sandbox_xlm_balance') || '10000')
+    const updated = (current + raisedAmount).toString()
+    localStorage.setItem('sandbox_xlm_balance', updated)
+    const mockHash = 'simulated_' + Math.random().toString(36).substring(2, 15)
+    return { hash: mockHash, ledger: 123456 }
+  }
+
   const sourceAccount = await server.loadAccount(creatorPublicKey)
 
   const txBuilder = new TransactionBuilder(sourceAccount, {
@@ -169,6 +200,29 @@ export async function sendCrowdfundWithdraw(creatorPublicKey, campaignId) {
  * Builds, signs (via Freighter), and submits a transaction that simulates an investor refund.
  */
 export async function sendCrowdfundRefund(investorPublicKey, campaignId) {
+  if (investorPublicKey.startsWith('GBSANDBOX')) {
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    let refundAmount = 100
+    try {
+      const stored = localStorage.getItem('stellar_crowdfund_campaigns_v2')
+      if (stored) {
+        const campaigns = JSON.parse(stored)
+        const campaign = campaigns.find(c => c.id === campaignId)
+        if (campaign) {
+          const invs = campaign.investors.filter(i => i.address === investorPublicKey && !i.refunded)
+          refundAmount = invs.reduce((acc, curr) => acc + curr.amount, 0)
+        }
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    const current = parseFloat(localStorage.getItem('sandbox_xlm_balance') || '10000')
+    const updated = (current + refundAmount).toString()
+    localStorage.setItem('sandbox_xlm_balance', updated)
+    const mockHash = 'simulated_' + Math.random().toString(36).substring(2, 15)
+    return { hash: mockHash, ledger: 123456 }
+  }
+
   const sourceAccount = await server.loadAccount(investorPublicKey)
 
   const txBuilder = new TransactionBuilder(sourceAccount, {
@@ -204,5 +258,6 @@ export async function sendCrowdfundRefund(investorPublicKey, campaignId) {
  * Quick validity check for a Stellar public key.
  */
 export function isValidStellarAddress(address) {
+  if (typeof address === 'string' && address.startsWith('GBSANDBOX')) return true
   return typeof address === 'string' && /^G[A-Z0-9]{55}$/.test(address.trim())
 }

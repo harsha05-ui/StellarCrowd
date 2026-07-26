@@ -12,7 +12,10 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
   const [category, setCategory] = useState(CATEGORIES[0])
   const [coverImage, setCoverImage] = useState('')
   const [creatorName, setCreatorName] = useState('')
+  
+  const [imageValid, setImageValid] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     const defaultDate = new Date()
@@ -23,33 +26,49 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
     setDeadline(`${year}-${month}-${day}`)
   }, [])
 
-  const handleSubmit = (e) => {
+  // Validate Cover Image URL live
+  useEffect(() => {
+    if (!coverImage) {
+      setImageValid(false)
+      return
+    }
+    const img = new Image()
+    img.onload = () => setImageValid(true)
+    img.onerror = () => setImageValid(false)
+    img.src = coverImage
+  }, [coverImage])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setErrorMsg('')
 
     if (!publicKey) {
-      setErrorMsg('Please connect your wallet first.')
+      setErrorMsg('Connect your Freighter wallet to continue.')
       return
     }
 
     if (!title.trim() || !shortDescription.trim() || !fullDescription.trim() || !creatorName.trim()) {
-      setErrorMsg('All description and creator fields are required.')
+      setErrorMsg('All fields must be completed.')
       return
     }
 
     const target = parseFloat(targetAmount)
     if (isNaN(target) || target <= 0) {
-      setErrorMsg('Please enter a valid target amount greater than zero.')
+      setErrorMsg('Goal must be a positive XLM amount.')
       return
     }
 
     const deadlineDate = new Date(deadline)
     if (isNaN(deadlineDate.getTime()) || deadlineDate <= new Date()) {
-      setErrorMsg('Please select a valid future deadline.')
+      setErrorMsg('Deadline must be set to a future date.')
       return
     }
 
+    setIsSubmitting(true)
     try {
+      // Simulate transaction build delay
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      
       onCreate({
         title: title.trim(),
         description: fullDescription.trim(),
@@ -57,102 +76,123 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
         targetAmount: target,
         deadline: deadlineDate.toISOString(),
         category,
-        coverImage: coverImage.trim() || undefined,
+        coverImage: coverImage.trim() || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=80',
         creator: publicKey,
         creatorName: creatorName.trim(),
       })
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to create campaign.')
+      setErrorMsg(err.message || 'Creation failed.')
+      setIsSubmitting(false)
     }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-space-950/80 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-lg rounded-2xl border border-space-600 bg-space-800 p-5 shadow-2xl overflow-hidden sm:p-6 my-8">
+      <div className="relative w-full max-w-xl rounded-2xl border border-space-600/50 bg-space-800 p-6 shadow-2xl overflow-hidden my-8 animate-slide-up">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-space-600/50 pb-4">
-          <h2 className="text-lg font-bold text-white">Create New Campaign</h2>
+        <div className="flex items-center justify-between border-b border-space-600/30 pb-4">
+          <h2 className="text-base font-bold text-white uppercase tracking-widest">Deploy CrowdFundX Escrow</h2>
           <button
             onClick={onClose}
-            className="text-mist hover:text-flare-400 focus:outline-none"
-            aria-label="Close modal"
+            className="text-mist hover:text-flare-400 focus:outline-none transition"
+            aria-label="Close"
           >
             ✕
           </button>
         </div>
 
+        {/* Live Cover Preview Panel */}
+        <div className="mt-4 h-32 w-full rounded-xl bg-space-900 border border-space-600/30 overflow-hidden relative flex items-center justify-center">
+          {imageValid ? (
+            <img 
+              src={coverImage} 
+              alt="Campaign cover preview" 
+              className="h-full w-full object-cover animate-fade-in"
+            />
+          ) : (
+            <div className="text-center p-4 space-y-1">
+              <p className="text-lg">🖼️</p>
+              <p className="text-[10px] text-mist font-semibold uppercase tracking-wider">Live Cover Image Preview</p>
+              <p className="text-[9px] text-mist/60">Enter a valid URL in the cover image field below to preview.</p>
+            </div>
+          )}
+        </div>
+
         {/* Form */}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-          {/* Creator Details */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Creator Name</label>
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4 max-h-[50vh] overflow-y-auto pr-1">
+          
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Creator Name */}
+            <div className="relative">
+              <label className="block text-[10px] font-bold text-mist uppercase tracking-widest">Creator Name</label>
               <input
                 type="text"
                 required
                 value={creatorName}
                 onChange={(e) => setCreatorName(e.target.value)}
                 placeholder="e.g. Acme Tech Labs"
-                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50"
+                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-stellarblue-500 font-semibold"
               />
             </div>
+
+            {/* Public Wallet Key */}
             <div>
-              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Stellar Address</label>
+              <label className="block text-[10px] font-bold text-mist uppercase tracking-widest">Stellar Wallet</label>
               <input
                 type="text"
                 readOnly
-                value={publicKey || 'Wallet not connected'}
-                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 font-mono text-[10px] text-mist focus:outline-none cursor-not-allowed"
+                value={publicKey || 'Not connected'}
+                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 font-mono text-[9px] text-stellarblue-400 focus:outline-none cursor-not-allowed"
               />
             </div>
           </div>
 
           {/* Title */}
           <div>
-            <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Campaign Title</label>
+            <label className="block text-[10px] font-bold text-mist uppercase tracking-widest">Campaign Title</label>
             <input
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Ocean Cleanup Solar Bot"
+              placeholder="e.g. Orion Space Sensor Grid"
               maxLength={60}
-              className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50"
+              className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-stellarblue-500 font-semibold"
             />
           </div>
 
-          {/* Short Description */}
+          {/* Short description */}
           <div>
-            <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Short Description</label>
+            <label className="block text-[10px] font-bold text-mist uppercase tracking-widest">Short Description</label>
             <input
               type="text"
               required
               value={shortDescription}
               onChange={(e) => setShortDescription(e.target.value)}
-              placeholder="A brief 1-sentence hook summarizing your project goals..."
+              placeholder="1-sentence hook to display on explorer cards..."
               maxLength={120}
-              className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50"
+              className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-stellarblue-500"
             />
           </div>
 
-          {/* Full Description */}
+          {/* Full description */}
           <div>
-            <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Full Campaign Description</label>
+            <label className="block text-[10px] font-bold text-mist uppercase tracking-widest">Full Road Map Details</label>
             <textarea
               required
               rows={4}
               value={fullDescription}
               onChange={(e) => setFullDescription(e.target.value)}
-              placeholder="Provide a detailed roadmap, resource allocations, and technical details of your project..."
-              className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50"
+              placeholder="Roadmap, milestones, and details..."
+              className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-stellarblue-500 leading-relaxed"
             />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Target XLM */}
+            {/* Target goal */}
             <div>
-              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Funding Target</label>
+              <label className="block text-[10px] font-bold text-mist uppercase tracking-widest">Target Goal</label>
               <div className="relative mt-1.5">
                 <input
                   type="number"
@@ -162,21 +202,21 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
                   value={targetAmount}
                   onChange={(e) => setTargetAmount(e.target.value)}
                   placeholder="300"
-                  className="w-full rounded-lg border border-space-600 bg-space-900 pl-3 pr-12 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50 font-mono"
+                  className="w-full rounded-lg border border-space-600 bg-space-900 pl-3 pr-12 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-stellarblue-500 font-mono font-bold"
                 />
-                <span className="absolute right-3 top-2.5 text-xs font-mono font-bold text-mist">XLM</span>
+                <span className="absolute right-3 top-2 text-[10px] font-mono font-bold text-mist">XLM</span>
               </div>
             </div>
 
             {/* Deadline */}
             <div>
-              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Deadline Date</label>
+              <label className="block text-[10px] font-bold text-mist uppercase tracking-widest">Deadline Date</label>
               <input
                 type="date"
                 required
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50 font-mono"
+                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-stellarblue-500 font-mono font-bold"
               />
             </div>
           </div>
@@ -184,11 +224,11 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Category */}
             <div>
-              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Category</label>
+              <label className="block text-[10px] font-bold text-mist uppercase tracking-widest">Category</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50 cursor-pointer"
+                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-xs text-white focus:outline-none cursor-pointer font-bold"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -200,25 +240,25 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
 
             {/* Cover Image URL */}
             <div>
-              <label className="block text-xs font-semibold text-mist uppercase tracking-wider">Cover Image URL</label>
+              <label className="block text-[10px] font-bold text-mist uppercase tracking-widest">Cover Image URL</label>
               <input
                 type="url"
                 value={coverImage}
                 onChange={(e) => setCoverImage(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-stellarblue-500/50"
+                placeholder="https://example.com/cover.jpg"
+                className="mt-1.5 w-full rounded-lg border border-space-600 bg-space-900 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-stellarblue-500 font-mono"
               />
             </div>
           </div>
 
           {errorMsg && (
-            <p className="font-mono text-xs text-red-400 text-center bg-red-500/5 border border-red-500/10 rounded-lg py-2">
+            <p className="font-mono text-[10px] text-red-400 text-center bg-red-500/10 border border-red-500/20 rounded-lg py-2">
               {errorMsg}
             </p>
           )}
 
-          {/* Submit */}
-          <div className="flex gap-3 border-t border-space-600/50 pt-4">
+          {/* Buttons */}
+          <div className="flex gap-3 border-t border-space-600/30 pt-4">
             <button
               type="button"
               onClick={onClose}
@@ -228,10 +268,10 @@ export default function CreateCampaignModal({ onClose, onCreate, publicKey }) {
             </button>
             <button
               type="submit"
-              disabled={!publicKey}
+              disabled={isSubmitting || !publicKey}
               className="flex-1 rounded-lg bg-flare-500 py-2.5 text-xs font-bold text-space-950 hover:bg-flare-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Launch Campaign
+              {isSubmitting ? 'Deploying Ledger Escrow…' : 'Deploy Escrow Contract'}
             </button>
           </div>
         </form>

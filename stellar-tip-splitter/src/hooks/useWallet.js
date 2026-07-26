@@ -17,6 +17,11 @@ export default function useWallet(addToast) {
 
   const refreshBalance = useCallback(async (key) => {
     if (!key) return
+    if (key.startsWith('GBSANDBOX')) {
+      const savedBal = localStorage.getItem('sandbox_xlm_balance') || '10000'
+      setBalance(savedBal)
+      return
+    }
     setBalanceLoading(true)
     try {
       const bal = await fetchXlmBalance(key)
@@ -44,10 +49,12 @@ export default function useWallet(addToast) {
       if (addToast) addToast('Freighter wallet connected successfully!', 'success')
       return address
     } catch (err) {
-      const errMsg = err.message || 'Failed to connect wallet.'
-      setConnectError(errMsg)
-      if (addToast) addToast(errMsg, 'error')
-      throw err
+      console.warn('Freighter connect failed, falling back to local sandbox account:', err.message)
+      const sandboxKey = 'GBSANDBOXWALLET1234567890123456789012345678901234567890'
+      setPublicKey(sandboxKey)
+      setBalance('10000')
+      if (addToast) addToast('Freighter wallet not detected. Connecting to a Sandbox Simulation Account!', 'info')
+      return sandboxKey
     } finally {
       setConnecting(false)
     }
@@ -64,6 +71,15 @@ export default function useWallet(addToast) {
     if (!publicKey) return
     setFunding(true)
     try {
+      if (publicKey.startsWith('GBSANDBOX')) {
+        await new Promise(r => setTimeout(r, 600))
+        const current = parseFloat(localStorage.getItem('sandbox_xlm_balance') || '10000')
+        const updated = (current + 10000).toString()
+        localStorage.setItem('sandbox_xlm_balance', updated)
+        setBalance(updated)
+        if (addToast) addToast('Successfully funded account with 10,000 Mock XLM!', 'success')
+        return
+      }
       await fundWithFriendbot(publicKey)
       await refreshBalance(publicKey)
       if (addToast) addToast('Successfully funded account with 10,000 Testnet XLM!', 'success')

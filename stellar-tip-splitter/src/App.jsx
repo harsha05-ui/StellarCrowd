@@ -108,6 +108,7 @@ export default function App() {
       {selectedCampaign && (
         <CampaignDetailsModal
           campaign={selectedCampaign}
+          campaigns={cState.campaigns}
           onClose={() => setSelectedCampaign(null)}
           onRefresh={handleCampaignUpdate}
           publicKey={wallet.publicKey}
