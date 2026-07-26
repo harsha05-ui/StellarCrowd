@@ -16,6 +16,7 @@ import {
   Operation,
   Asset,
   BASE_FEE,
+  Memo,
 } from '@stellar/stellar-sdk'
 
 export const HORIZON_TESTNET_URL = 'https://horizon-testnet.stellar.org'
@@ -28,7 +29,6 @@ const server = new Horizon.Server(HORIZON_TESTNET_URL)
  */
 export async function checkFreighterInstalled() {
   const result = await isConnected()
-  // freighter-api returns { isConnected: boolean, error? }
   return !result.error && result.isConnected !== undefined
 }
 
@@ -59,7 +59,7 @@ export async function connectWallet() {
 /**
  * "Disconnect" — Freighter has no app-side disconnect API (the user
  * controls site access from inside the extension), so we just clear
- * local app state. This function exists for symmetry / clarity in the UI.
+ * local app state.
  */
 export function disconnectWallet() {
   return true
@@ -67,8 +67,7 @@ export function disconnectWallet() {
 
 /**
  * Fetches the XLM balance for a given public key on testnet.
- * Returns "0" (as a string) for unfunded accounts instead of throwing,
- * so the UI can prompt the user to fund via Friendbot.
+ * Returns "0" (as a string) for unfunded accounts instead of throwing.
  */
 export async function fetchXlmBalance(publicKey) {
   try {
@@ -77,7 +76,6 @@ export async function fetchXlmBalance(publicKey) {
     return native ? native.balance : '0'
   } catch (err) {
     if (err?.response?.status === 404) {
-      // Account exists on no ledger yet = unfunded testnet account.
       return '0'
     }
     throw err
@@ -86,7 +84,6 @@ export async function fetchXlmBalance(publicKey) {
 
 /**
  * Funds a brand-new testnet account using Friendbot.
- * Only works on TESTNET and only for accounts that don't exist yet.
  */
 export async function fundWithFriendbot(publicKey) {
   const res = await fetch(`${FRIENDBOT_URL}?addr=${encodeURIComponent(publicKey)}`)
@@ -98,32 +95,26 @@ export async function fundWithFriendbot(publicKey) {
 }
 
 /**
- * Builds, signs (via Freighter), and submits a transaction that pays out
- * XLM to multiple recipients in a single ledger transaction.
- *
- * @param {string} senderPublicKey
- * @param {Array<{address: string, amount: string}>} recipients
- * @returns {Promise<{hash: string, ledger: number}>}
+ * Builds, signs (via Freighter), and submits a transaction that simulates investing in a campaign.
+ * Performs a self-payment with custom memo text indicating investment details.
  */
-export async function sendSplitPayment(senderPublicKey, recipients) {
-  if (!recipients.length) throw new Error('Add at least one recipient.')
-
+export async function sendCrowdfundInvestment(senderPublicKey, amount, campaignId) {
   const sourceAccount = await server.loadAccount(senderPublicKey)
 
   const txBuilder = new TransactionBuilder(sourceAccount, {
-    fee: String(BASE_FEE * recipients.length),
+    fee: String(BASE_FEE),
     networkPassphrase: Networks.TESTNET,
   })
 
-  for (const { address, amount } of recipients) {
-    txBuilder.addOperation(
+  txBuilder
+    .addOperation(
       Operation.payment({
-        destination: address,
+        destination: senderPublicKey,
         asset: Asset.native(),
         amount: String(amount),
       })
     )
-  }
+    .addMemo(Memo.text(`CF_INVEST:${campaignId}`.slice(0, 28)))
 
   const transaction = txBuilder.setTimeout(60).build()
   const xdr = transaction.toXDR()
@@ -140,8 +131,77 @@ export async function sendSplitPayment(senderPublicKey, recipients) {
 }
 
 /**
- * Quick validity check for a Stellar public key (G... address), used for
- * inline form validation before attempting a transaction.
+ * Builds, signs (via Freighter), and submits a transaction that simulates a creator withdrawal.
+ */
+export async function sendCrowdfundWithdraw(creatorPublicKey, campaignId) {
+  const sourceAccount = await server.loadAccount(creatorPublicKey)
+
+  const txBuilder = new TransactionBuilder(sourceAccount, {
+    fee: String(BASE_FEE),
+    networkPassphrase: Networks.TESTNET,
+  })
+
+  txBuilder
+    .addOperation(
+      Operation.payment({
+        destination: creatorPublicKey,
+        asset: Asset.native(),
+        amount: '0.0000100', // Nominal self-payment
+      })
+    )
+    .addMemo(Memo.text(`CF_WITHDRAW:${campaignId}`.slice(0, 28)))
+
+  const transaction = txBuilder.setTimeout(60).build()
+  const xdr = transaction.toXDR()
+
+  const signResult = await signTransaction(xdr, {
+    networkPassphrase: Networks.TESTNET,
+  })
+  if (signResult.error) throw new Error(signResult.error)
+
+  const signedTx = TransactionBuilder.fromXDR(signResult.signedTxXdr, Networks.TESTNET)
+  const submitResult = await server.submitTransaction(signedTx)
+
+  return { hash: submitResult.hash, ledger: submitResult.ledger }
+}
+
+/**
+ * Builds, signs (via Freighter), and submits a transaction that simulates an investor refund.
+ */
+export async function sendCrowdfundRefund(investorPublicKey, campaignId) {
+  const sourceAccount = await server.loadAccount(investorPublicKey)
+
+  const txBuilder = new TransactionBuilder(sourceAccount, {
+    fee: String(BASE_FEE),
+    networkPassphrase: Networks.TESTNET,
+  })
+
+  txBuilder
+    .addOperation(
+      Operation.payment({
+        destination: investorPublicKey,
+        asset: Asset.native(),
+        amount: '0.0000100', // Nominal self-payment
+      })
+    )
+    .addMemo(Memo.text(`CF_REFUND:${campaignId}`.slice(0, 28)))
+
+  const transaction = txBuilder.setTimeout(60).build()
+  const xdr = transaction.toXDR()
+
+  const signResult = await signTransaction(xdr, {
+    networkPassphrase: Networks.TESTNET,
+  })
+  if (signResult.error) throw new Error(signResult.error)
+
+  const signedTx = TransactionBuilder.fromXDR(signResult.signedTxXdr, Networks.TESTNET)
+  const submitResult = await server.submitTransaction(signedTx)
+
+  return { hash: submitResult.hash, ledger: submitResult.ledger }
+}
+
+/**
+ * Quick validity check for a Stellar public key.
  */
 export function isValidStellarAddress(address) {
   return typeof address === 'string' && /^G[A-Z0-9]{55}$/.test(address.trim())
