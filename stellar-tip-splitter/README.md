@@ -113,29 +113,24 @@ The simulated contract logic is mapped out in Rust for the Soroban framework in:
 
 ---
 
-## 🖼️ Required Screenshots
+## 🖼️ Platform Walkthrough
 
-*Below are placeholder sections illustrating the primary platform user flows. Replace these with actual images before hosting:*
+Below are visual captures of the upgraded CrowdFundX user interface and functionality:
 
-### 1. Wallet Connected State
-*Show the Freighter connection status panel in the top-right header, displaying the user's public address key.*
+### 1. Landing Page Visual Overhaul
+*Featuring the glowing mesh gradient background, live platform statistics telemetry, spotlight campaigns, and categories selector.*
 
-`[Screenshot Placeholder: Wallet Connected State]`
+![Landing Page Visual Overhaul](screenshots/hero_and_statistics.png)
 
-### 2. Balance Displayed
-*Show the connected Freighter address displaying its current Testnet XLM balance retrieved from the Horizon server.*
+### 2. Collapsible Accordion FAQs
+*Interactive FAQ accordion panels detailing programmatic refunds, Friendbot tokens, and escrow settlements.*
 
-`[Screenshot Placeholder: Balance Displayed]`
+![FAQ Accordion Expanded](screenshots/expanded_faq.png)
 
-### 3. Successful Testnet Transaction
-*Show the Freighter extension popup prompting for approval, confirming the transaction has been submitted to the Stellar ledger.*
+### 3. Ledger Transactions
+*Freighter wallet integration logs real-time payments, withdrawals, and refunds to the Stellar blockchain.*
 
-`[Screenshot Placeholder: Successful Testnet Transaction]`
-
-### 4. Transaction Result
-*Show the confirmation banner displaying a success message, the ledger transaction hash, and the updated campaign raised progress.*
-
-`[Screenshot Placeholder: Transaction Result]`
+![Transaction Success](screenshots/transaction-success.png)
 
 ---
 
